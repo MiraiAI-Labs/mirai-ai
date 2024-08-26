@@ -1,5 +1,7 @@
-fastapi==0.112.1
+elevenlabs==1.7.0
+fastapi==0.112.2
 librosa==0.10.2.post1
+llama_index==0.11.1
 openai==1.42.0
 python-dotenv==1.0.1
 torch==2.4.0
