@@ -10,6 +10,7 @@ from elevenlabs import VoiceSettings
 from elevenlabs.client import ElevenLabs
 from fastapi import HTTPException, UploadFile
 from openai import OpenAI
+from rag_service import rag_service
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 load_dotenv()
@@ -89,63 +90,11 @@ class OpenAIWhisperClient(TranscriptionClient):
 class OpenAIClient:
     def __init__(self, api_key):
         self.client = OpenAI(api_key=api_key)
-        self.conversation = []
 
-    def get_ai_response(self, question):
-        messages = [
-            {
-                "role": "system",
-                "content": """
-                System Prompt:
-                TOLONG GUNAKAN BAHASA INDONESIA UNTUK SEMUA HAL KE DEPAN NAMUN TETAP GUNAKAN SEDIKIT BAHASA INGGRIS UNTUK KONTEKS KATA KUNCI IT SEPERTI "SOFTWARE ENGINEER/API/Database/Data Engineer"
-                You are an experienced HR professional conducting a software engineering interview. Follow these guidelines:
-
-                Introduce yourself briefly as the HR interviewer.
-                Ask one question at a time, waiting for the candidate's response before proceeding.
-                Ask a total of 5 questions covering:
-
-                Brief introduction
-                Technical skills
-                Work experience
-                Problem-solving ability
-                Cultural fit
-
-                After all questions are answered, provide a brief evaluation of the candidate's performance, including:
-
-                Strengths
-                Areas for improvement
-                Overall suitability for the position
-
-                Maintain a professional tone throughout the interview.
-                """,
-            },
-            {
-                "role": "assistant",
-                "content": "Hello, my name is Mirai and I am an HR from Gojek Company. How are you doing today?",
-            },
-        ]
-
-        messages.extend(self.conversation)
-        messages.append({"role": "user", "content": question})
-
-        self.conversation.append({"role": "user", "content": question})
-
+    def get_ai_response(self, question, position):
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                stream=True,
-            )
-
-            ai_response = ""
-            for chunk in response:
-                if chunk.choices and chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
-                    ai_response += content
-                    yield content
-
-            self.conversation.append({"role": "assistant", "content": ai_response})
-
+            ai_response = rag_service.get_ai_response(question, position)
+            return ai_response
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Error in AI response: {str(e)}"
@@ -154,7 +103,6 @@ class OpenAIClient:
 
 class AIService:
     def __init__(
-        # ada 2 opsi tts_service = "elevenlabs" dan "openai"
         self,
         transcription_client: TranscriptionClient,
         tts_service: str = "openai",

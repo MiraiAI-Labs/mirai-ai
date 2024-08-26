@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.post("/speak")
-async def speak(audio: UploadFile = File(...)):
+async def speak(audio: UploadFile = File(...), position: str = "data engineer"):
     speech_file_path = None
     try:
         # Transcribe the audio
@@ -54,10 +54,7 @@ async def speak(audio: UploadFile = File(...)):
         logger.info(f"Transcription: {transcription}")
 
         # Generate AI response
-        ai_response = ""
-        ai_response_generator = ai_service.openai_client.get_ai_response(transcription)
-        for content in ai_response_generator:
-            ai_response += content
+        ai_response = ai_service.openai_client.get_ai_response(transcription, position)
         logger.info(f"AI Response: {ai_response}")
 
         # Generate speech using the selected TTS service
