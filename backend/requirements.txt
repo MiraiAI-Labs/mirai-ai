@@ -1,5 +1,4 @@
-elevenlabs==1.7.0
-fastapi==0.112.2
+fastapi==0.112.1
 librosa==0.10.2.post1
 openai==1.42.0
 python-dotenv==1.0.1
