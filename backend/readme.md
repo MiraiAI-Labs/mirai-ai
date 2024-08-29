@@ -8,3 +8,14 @@ b. Huggingface
 ### How to pick position="Software Engineer"
 a. Ganti di function get_ai_response
    - def get_ai_response(self, question, position="Software Engineer"):
+
+### How to choose text-to-speech
+a. di ai.py 
+```py
+class AIService:
+    def __init__(
+        self,
+        transcription_client: TranscriptionClient,
+        tts_service: str = "openai", # openai/elevenlabs
+    ):
+```
