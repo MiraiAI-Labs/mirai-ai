@@ -8,12 +8,29 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
 # Ensure the 'audios' directory exists
 audios_dir = Path("./audios")
 audios_dir.mkdir(parents=True, exist_ok=True)
+
+# Define the FastAPI app
+app = FastAPI()
+
+# Correctly reference the welcoming directory
+welcoming_dir = Path(__file__).parent / "audios" / "welcoming"
+
+# Verify that the directory exists
+if not welcoming_dir.exists():
+    raise RuntimeError(f"Directory '{welcoming_dir}' does not exist")
+
+# Mount the static files after defining the app
+app.mount(
+    "/static/welcoming", StaticFiles(directory=welcoming_dir), name="static_welcoming"
+)
+
 
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
@@ -33,8 +50,6 @@ else:
     )
 
 ai_service = AIService(transcription_client=transcription_client)
-
-app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,6 +116,11 @@ async def get_audio(filename: str):
     if file_path.exists():
         return FileResponse(file_path)
     raise HTTPException(status_code=404, detail="File not found")
+
+
+@app.get("/config")
+async def get_config():
+    return {"tts_service": ai_service.tts_service}
 
 
 if __name__ == "__main__":

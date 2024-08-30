@@ -12,20 +12,67 @@ const MockInterview: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState<string>('');
+  const [isStartButtonDisabled, setIsStartButtonDisabled] = useState<boolean>(true);
+  const [ttsService, setTtsService] = useState<string>('');
+
   const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
   const searchParams = useSearchParams();
   const position = searchParams.get('position') || '';
 
   useEffect(() => {
-    audioContextRef.current = new AudioContext();
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+    // Fetch tts_service from the backend
+    const fetchTtsService = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/config`);
+        if (response.ok) {
+          const config = await response.json();
+          setTtsService(config.tts_service);
+        } else {
+          console.error("Failed to fetch tts_service from backend");
+        }
+      } catch (error) {
+        console.error("Error fetching tts_service:", error);
       }
     };
+
+    fetchTtsService();
   }, []);
+
+  useEffect(() => {
+    if (!ttsService) return; // Wait until ttsService is fetched
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!baseUrl) {
+      console.error("Backend URL is not defined in environment variables");
+      return;
+    }
+
+    const welcomeAudioUrl = ttsService === "openai"
+      ? `${baseUrl}/static/welcoming/welcoming-alloy.wav`
+      : `${baseUrl}/static/welcoming/welcoming-zephlyn.wav`;
+
+    console.log("Playing audio from URL:", welcomeAudioUrl);
+
+    const welcomeAudio = new Audio(welcomeAudioUrl);
+
+    welcomeAudio.play().catch(error => {
+      console.error("Error playing the audio:", error);
+      setAudioError("Failed to play welcoming audio.");
+    });
+
+    welcomeAudio.onplay = () => {
+      setIsPlaying(true);
+      setIsStartButtonDisabled(true); // Disable the start button during playback
+    };
+
+    welcomeAudio.onended = () => {
+      setIsPlaying(false);
+      setIsStartButtonDisabled(false); // Enable the start button after playback ends
+    };
+
+  }, [ttsService]);
 
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -119,20 +166,6 @@ const MockInterview: React.FC = () => {
     }
   };
 
-  const stopAudio = () => {
-    if (sourceNodeRef.current) {
-      sourceNodeRef.current.stop();
-      setIsPlaying(false);
-    } else {
-      const audio = document.querySelector("audio");
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-        setIsPlaying(false);
-      }
-    }
-  };
-
   return (
     <section className="bg-gradient-to-r from-blue-500 via-blue-400 to-blue-300 h-screen flex justify-center items-center">
       <div className="bg-white p-8 rounded-lg shadow-lg w-1/2 max-w-sm text-center">
@@ -152,13 +185,13 @@ const MockInterview: React.FC = () => {
         </div>
 
         {/* Recording Button */}
-        {
-          recorder ? (
-            <button onClick={stopRecording} className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-full w-32 focus:outline-none">Stop</button>
-          ) : (
-            <button onClick={startRecording} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-full w-32 focus:outline-none">Start</button>
-          )
-        }
+        <button
+          onClick={recorder ? stopRecording : startRecording}
+          className={`font-semibold py-2 px-4 rounded-full w-32 focus:outline-none ${recorder ? 'bg-red-500 hover:bg-red-600 text-white' : `bg-blue-500 hover:bg-blue-600 text-white ${isStartButtonDisabled ? 'cursor-not-allowed opacity-50' : ''}`}`}
+          disabled={!recorder && isStartButtonDisabled}
+        >
+          {recorder ? "Stop" : "Start"}
+        </button>
 
         {/* Display transcription */}
         {transcription && (
@@ -174,13 +207,6 @@ const MockInterview: React.FC = () => {
             <p className="text-sm text-gray-600">AI Interviewer Response:</p>
             <div id="ai-response" className="bg-gray-100 p-3 rounded-md text-black">{aiResponse}</div>
           </div>
-        )}
-
-        {/* Audio controls */}
-        {isPlaying && (
-          <button onClick={stopAudio} className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-full mt-4">
-            Stop Audio
-          </button>
         )}
 
         {/* Error display */}
