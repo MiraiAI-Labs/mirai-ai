@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ai import AIService, HuggingFaceWhisperClient, OpenAIWhisperClient
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -51,8 +51,8 @@ logger = logging.getLogger(__name__)
 @app.post("/speak")
 async def speak(
     audio: UploadFile = File(...),
-    position: str = "data engineer",
-    user_id: str = "default_user",
+    position: str = Query(..., description="The position for the interview"),
+    user_id: str = Query("userid", description="User identifier"),
 ):
     speech_file_path = None
     try:
@@ -62,7 +62,6 @@ async def speak(
         ai_response = ai_service.openai_client.get_ai_response(transcription, position)
         logger.info(f"AI Response: {ai_response}")
 
-        # Update to save in the audios directory
         filename = f"audios/temp_audio_{user_id}_{uuid.uuid4()}.mp3"
         speech_file_path = ai_service.generate_speech(
             ai_response, user_id=user_id, filename=filename
@@ -98,7 +97,6 @@ async def speak(
 
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):
-    # Update path to access the audios directory
     file_path = Path(f"./audios/{filename}")
     if file_path.exists():
         return FileResponse(file_path)

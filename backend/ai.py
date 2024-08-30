@@ -102,7 +102,7 @@ class AIService:
     def __init__(
         self,
         transcription_client: TranscriptionClient,
-        tts_service: str = "elevenlabs",
+        tts_service: str = "openai",
     ):
         self.transcription_client = transcription_client
         self.tts_service = tts_service.lower()
