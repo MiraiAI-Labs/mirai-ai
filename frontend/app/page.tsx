@@ -85,44 +85,41 @@ const Home: React.FC = () => {
     formData.append('audio', audioBlob);
 
     try {
-      const response = await fetch(process.env.NEXT_PUBLIC_API_URL + '/speak', {
-        method: 'POST',
-        body: formData,
-      });
+        const response = await fetch(process.env.NEXT_PUBLIC_API_URL + '/speak', {
+            method: 'POST',
+            body: formData,
+        });
 
-      if (response.ok) {
-        const jsonResponse = await response.json();
-        setTranscription(jsonResponse.transcription);
-        setAiResponse(jsonResponse.ai_response);
+        if (response.ok) {
+            const jsonResponse = await response.json();
+            setTranscription(jsonResponse.transcription);
+            setAiResponse(jsonResponse.ai_response);
 
-        // Check the URL returned by the backend
-        console.log('Backend Response:', jsonResponse);
+            // Log the audio URL to verify it's correct
+            console.log('Backend Response:', jsonResponse);
 
-        // If the audio URL is not correct, hardcode it
-        let audioUrl = jsonResponse.audio_url;
-        if (!audioUrl.includes('http://localhost:8000')) {
-          audioUrl = 'http://localhost:8000/audio/temp_audio.mp3';
+            const audioUrl = process.env.NEXT_PUBLIC_API_URL + jsonResponse.audio_url;
+
+            // Play audio
+            const audio = new Audio(audioUrl);
+            audio.play();
+            setIsPlaying(true);
+
+            audio.onended = () => {
+                setIsPlaying(false);
+            };
+        } else {
+            console.error("Server responded with status:", response.status);
+            setAudioError(`Server error: ${response.status}`);
         }
-
-        // Play audio
-        const audio = new Audio(audioUrl);
-        audio.play();
-        setIsPlaying(true);
-
-        audio.onended = () => {
-          setIsPlaying(false);
-        };
-      } else {
-        console.error("Server responded with status:", response.status);
-        setAudioError(`Server error: ${response.status}`);
-      }
     } catch (error) {
-      if (error instanceof Error) {
-        console.error('Error sending audio to backend:', error.message);
-        setAudioError(`Error sending audio to backend: ${error.message}`);
-      }
+        if (error instanceof Error) {
+            console.error('Error sending audio to backend:', error.message);
+            setAudioError(`Error sending audio to backend: ${error.message}`);
+        }
     }
-  };
+};
+
 
   const stopAudio = () => {
     if (sourceNodeRef.current) {

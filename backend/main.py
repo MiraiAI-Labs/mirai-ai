@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from pathlib import Path
 
 from ai import AIService, HuggingFaceWhisperClient, OpenAIWhisperClient
@@ -9,6 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 load_dotenv()
+
+# Ensure the 'audios' directory exists
+audios_dir = Path("./audios")
+audios_dir.mkdir(parents=True, exist_ok=True)
 
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
@@ -27,12 +32,10 @@ else:
         f"Invalid TRANSCRIPTION_SERVICE '{transcription_service}'. Must be 'huggingface' or 'openai'."
     )
 
-# select the transcription client
 ai_service = AIService(transcription_client=transcription_client)
 
 app = FastAPI()
 
-# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,25 +49,30 @@ logger = logging.getLogger(__name__)
 
 
 @app.post("/speak")
-async def speak(audio: UploadFile = File(...), position: str = "data engineer"):
+async def speak(
+    audio: UploadFile = File(...),
+    position: str = "data engineer",
+    user_id: str = "default_user",
+):
     speech_file_path = None
     try:
-        # Transcribe the audio
         transcription = await ai_service.handle_audio_transcription(audio)
         logger.info(f"Transcription: {transcription}")
 
-        # Generate AI response
         ai_response = ai_service.openai_client.get_ai_response(transcription, position)
         logger.info(f"AI Response: {ai_response}")
 
-        # Generate speech using the selected TTS service
-        speech_file_path = ai_service.generate_speech(ai_response)
+        # Update to save in the audios directory
+        filename = f"audios/temp_audio_{user_id}_{uuid.uuid4()}.mp3"
+        speech_file_path = ai_service.generate_speech(
+            ai_response, user_id=user_id, filename=filename
+        )
 
         return JSONResponse(
             {
                 "transcription": transcription,
                 "ai_response": ai_response,
-                "audio_url": f"/audio/{os.path.basename(speech_file_path)}",
+                "audio_url": f"/audio/{Path(speech_file_path).name}",
             }
         )
 
@@ -90,7 +98,8 @@ async def speak(audio: UploadFile = File(...), position: str = "data engineer"):
 
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):
-    file_path = Path(filename)
+    # Update path to access the audios directory
+    file_path = Path(f"./audios/{filename}")
     if file_path.exists():
         return FileResponse(file_path)
     raise HTTPException(status_code=404, detail="File not found")

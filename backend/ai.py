@@ -1,5 +1,6 @@
 import os
 import tempfile
+import uuid
 from io import BytesIO
 from pathlib import Path
 
@@ -31,15 +32,12 @@ class HuggingFaceWhisperClient(TranscriptionClient):
 
     def transcribe(self, audio_file_path, language="id"):
         try:
-            # load dengan librosa untuk melakukan resampling sampling rate menjadi 16000 (default dari model)
             audio_input, sample_rate = librosa.load(audio_file_path, sr=16000)
 
-            # Preprocessing audio
             input_features = self.processor(
                 audio_input, sampling_rate=16000, return_tensors="pt"
             ).input_features
 
-            # Melakukan inference dengan menetapkan bahasa Indonesia
             input_features = input_features.to(self.device)
             generated_ids = self.model.generate(
                 input_features,
@@ -48,7 +46,6 @@ class HuggingFaceWhisperClient(TranscriptionClient):
                 ),
             )
 
-            # Mendapatkan hasil transkripsi
             transcription = self.processor.batch_decode(
                 generated_ids, skip_special_tokens=True
             )[0]
@@ -105,7 +102,7 @@ class AIService:
     def __init__(
         self,
         transcription_client: TranscriptionClient,
-        tts_service: str = "openai",
+        tts_service: str = "elevenlabs",
     ):
         self.transcription_client = transcription_client
         self.tts_service = tts_service.lower()
@@ -125,7 +122,6 @@ class AIService:
             with open(temp_file_name, "wb") as f:
                 f.write(audio_content)
 
-            # Transcribe the audio
             transcription = self.transcription_client.transcribe(
                 temp_file_name, language="id"
             )
@@ -145,7 +141,10 @@ class AIService:
                 status_code=500, detail=f"Error in transcription: {str(e)}"
             )
 
-    def generate_speech(self, text: str, filename: str = "temp_audio.mp3") -> str:
+    def generate_speech(self, text: str, user_id: str, filename: str = None) -> str:
+        if filename is None:
+            filename = f"temp_audio_{user_id}_{uuid.uuid4()}.mp3"
+
         if self.tts_service == "elevenlabs":
             response = self.elevenlabs_client.text_to_speech.convert(
                 voice_id="3mAVBNEqop5UbHtD8oxQ",  # Adam pre-made voice
@@ -161,15 +160,12 @@ class AIService:
                 ),
             )
 
-            # Create a BytesIO object to hold the audio data in memory
             audio_stream = BytesIO()
 
-            # Write each chunk of audio data to the stream
             for chunk in response:
                 if chunk:
                     audio_stream.write(chunk)
 
-            # Save the BytesIO stream to a file
             with open(filename, "wb") as audio_file:
                 audio_file.write(audio_stream.getvalue())
 
