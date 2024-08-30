@@ -1,5 +1,6 @@
 import logging
 import os
+import time  # Already imported here
 import uuid
 from pathlib import Path
 
@@ -12,24 +13,35 @@ from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
-# Ensure the 'audios' directory exists
 audios_dir = Path("./audios")
 audios_dir.mkdir(parents=True, exist_ok=True)
 
-# Define the FastAPI app
 app = FastAPI()
 
-# Correctly reference the welcoming directory
 welcoming_dir = Path(__file__).parent / "audios" / "welcoming"
 
-# Verify that the directory exists
 if not welcoming_dir.exists():
     raise RuntimeError(f"Directory '{welcoming_dir}' does not exist")
 
-# Mount the static files after defining the app
 app.mount(
     "/static/welcoming", StaticFiles(directory=welcoming_dir), name="static_welcoming"
 )
+
+sessions = {}
+SESSION_EXPIRY = 3600  # 1 hour session expiry time
+
+
+def cleanup_expired_sessions():
+    current_time = time.time()
+    expired_sessions = [
+        userid
+        for userid, session in sessions.items()
+        if current_time - session["timestamp"] > SESSION_EXPIRY
+    ]
+
+    for userid in expired_sessions:
+        del sessions[userid]
+        logger.info(f"Session for userid {userid} expired and was removed.")
 
 
 api_key = os.getenv("OPENAI_API_KEY")
@@ -69,6 +81,17 @@ async def speak(
     position: str = Query(..., description="The position for the interview"),
     user_id: str = Query("userid", description="User identifier"),
 ):
+    cleanup_expired_sessions()
+
+    if user_id not in sessions:
+        sessions[user_id] = {
+            "conversation_history": [],
+            "current_question_index": 0,
+            "timestamp": time.time(),
+        }
+
+    session = sessions[user_id]
+
     speech_file_path = None
     try:
         transcription = await ai_service.handle_audio_transcription(audio)
@@ -81,6 +104,11 @@ async def speak(
         speech_file_path = ai_service.generate_speech(
             ai_response, user_id=user_id, filename=filename
         )
+
+        session["conversation_history"].append(f"Kandidat: {transcription}")
+        session["conversation_history"].append(f"HR: {ai_response}")
+        session["current_question_index"] += 1
+        session["timestamp"] = time.time()
 
         return JSONResponse(
             {
@@ -97,7 +125,6 @@ async def speak(
     finally:
         if speech_file_path:
             import threading
-            import time
 
             def delete_file(path, delay):
                 time.sleep(delay)
