@@ -21,7 +21,6 @@ const MockInterview: React.FC = () => {
   const position = searchParams.get('position') || '';
 
   useEffect(() => {
-    // Fetch tts_service from the backend
     const fetchTtsService = async () => {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/config`);
@@ -40,7 +39,7 @@ const MockInterview: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!ttsService) return; // Wait until ttsService is fetched
+    if (!ttsService) return;
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -64,12 +63,12 @@ const MockInterview: React.FC = () => {
 
     welcomeAudio.onplay = () => {
       setIsPlaying(true);
-      setIsStartButtonDisabled(true); // Disable the start button during playback
+      setIsStartButtonDisabled(true);
     };
 
     welcomeAudio.onended = () => {
       setIsPlaying(false);
-      setIsStartButtonDisabled(false); // Enable the start button after playback ends
+      setIsStartButtonDisabled(false);
     };
 
   }, [ttsService]);
@@ -128,12 +127,14 @@ const MockInterview: React.FC = () => {
     setSelectedMic(event.target.value);
   };
 
+  const userId = 'user_a'; // CONTOH DUMMY USER ID
+
   const sendAudioToBackend = async (audioBlob: Blob) => {
     const formData = new FormData();
     formData.append('audio', audioBlob);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/speak?position=${encodeURIComponent(position)}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/speak?position=${encodeURIComponent(position)}&user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
         body: formData,
       });

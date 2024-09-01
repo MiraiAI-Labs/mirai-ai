@@ -1,6 +1,6 @@
 import logging
 import os
-import time  # Already imported here
+import time
 import uuid
 from pathlib import Path
 
@@ -84,7 +84,7 @@ async def generate_quiz(
 ):
     try:
         quiz_json = rag_service.generate_quiz(position)
-        return JSONResponse(content=quiz_json)  # Directly return the parsed JSON
+        return JSONResponse(content=quiz_json)
     except Exception as e:
         logger.error(f"Error in /generate_quiz endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -94,7 +94,7 @@ async def generate_quiz(
 async def speak(
     audio: UploadFile = File(...),
     position: str = Query(..., description="The position for the interview"),
-    user_id: str = Query("userid", description="User identifier"),
+    user_id: str = Query(..., description="User identifier"),
 ):
     cleanup_expired_sessions()
 
@@ -103,7 +103,11 @@ async def speak(
             "conversation_history": [],
             "current_question_index": 0,
             "timestamp": time.time(),
+            "file_names": [],
         }
+        logger.info(f"Created new session for user_id={user_id}")
+    else:
+        logger.info(f"Using existing session for user_id={user_id}")
 
     session = sessions[user_id]
 
@@ -120,6 +124,7 @@ async def speak(
             ai_response, user_id=user_id, filename=filename
         )
 
+        sessions[user_id]["file_names"].append(Path(speech_file_path).name)
         session["conversation_history"].append(f"Kandidat: {transcription}")
         session["conversation_history"].append(f"HR: {ai_response}")
         session["current_question_index"] += 1
@@ -129,7 +134,7 @@ async def speak(
             {
                 "transcription": transcription,
                 "ai_response": ai_response,
-                "audio_url": f"/audio/{Path(speech_file_path).name}",
+                "audio_url": f"/audio/{Path(speech_file_path).name}?user_id={user_id}",
             }
         )
 
@@ -153,11 +158,27 @@ async def speak(
 
 
 @app.get("/audio/{filename}")
-async def get_audio(filename: str):
-    file_path = Path(f"./audios/{filename}")
-    if file_path.exists():
-        return FileResponse(file_path)
-    raise HTTPException(status_code=404, detail="File not found")
+async def get_audio(filename: str, user_id: str = Query(...)):
+    logger.info(f"Request to get audio: filename={filename}, user_id={user_id}")
+    if user_id in sessions:
+        logger.info(f"Session found for user_id={user_id}")
+        if filename in sessions[user_id]["file_names"]:
+            logger.info(f"Filename {filename} found in session for user_id={user_id}")
+            file_path = Path(f"./audios/{filename}")
+            if file_path.exists():
+                logger.info(f"File {filename} exists, returning file.")
+                return FileResponse(file_path, media_type="audio/mpeg")
+            else:
+                logger.error(f"File {filename} does not exist on disk.")
+                raise HTTPException(status_code=404, detail="File not found")
+        else:
+            logger.error(
+                f"Filename {filename} not found in session for user_id={user_id}"
+            )
+            raise HTTPException(status_code=403, detail="Unauthorized access")
+    else:
+        logger.error(f"No session found for user_id={user_id}")
+        raise HTTPException(status_code=403, detail="Unauthorized access")
 
 
 @app.get("/config")

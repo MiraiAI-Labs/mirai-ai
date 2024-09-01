@@ -147,7 +147,7 @@ class AIService:
 
         if self.tts_service == "elevenlabs":
             response = self.elevenlabs_client.text_to_speech.convert(
-                voice_id="3mAVBNEqop5UbHtD8oxQ",  # Adam pre-made voice
+                voice_id="3mAVBNEqop5UbHtD8oxQ",
                 output_format="mp3_22050_32",
                 text=text,
                 model_id="eleven_turbo_v2_5",
