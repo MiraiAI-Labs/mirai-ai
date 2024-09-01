@@ -1,3 +1,4 @@
+import json
 import os
 
 from dotenv import load_dotenv
@@ -100,6 +101,46 @@ class RAGService:
         self.current_question_index += 1
 
         return response.response
+
+    def generate_quiz(self, position):
+        quiz_prompt = f"""
+        Anda adalah seorang profesional di bidang {position} yang sedang merancang 10 pertanyaan quiz teknikal untuk posisi {position}.
+        Pertanyaan-pertanyaan ini harus relevan dengan keterampilan teknis yang dibutuhkan untuk posisi ini, mencakup berbagai aspek teknis terkait.
+
+        Format hasil yang diinginkan adalah JSON dengan struktur berikut:
+
+        ```json
+        {{
+          "quiz": [
+            {{
+              "question": "Pertanyaan 1",
+              "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+              "answer": "Jawaban yang benar"
+            }},
+            ...
+          ]
+        }}
+        ```
+
+        Harap buat 10 pertanyaan dengan format yang disebutkan di atas.
+        """
+
+        response = self.index.as_query_engine(llm=Settings.llm).query(quiz_prompt)
+
+        try:
+            start_index = response.response.find("{")
+            end_index = response.response.rfind("}") + 1
+            json_str = response.response[start_index:end_index]
+
+            quiz_data = json.loads(json_str)
+
+            return quiz_data
+
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse JSON from AI response: {e}")
+
+        except Exception as e:
+            raise ValueError(f"An error occurred while generating the quiz: {e}")
 
 
 rag_service = RAGService()

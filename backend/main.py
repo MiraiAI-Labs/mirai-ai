@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from rag_service import rag_service
 
 load_dotenv()
 
@@ -73,6 +74,20 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@app.get("/generate_quiz")
+async def generate_quiz(
+    position: str = Query(
+        ..., description="The position for which the quiz will be generated"
+    ),
+):
+    try:
+        quiz_json = rag_service.generate_quiz(position)
+        return JSONResponse(content=quiz_json)  # Directly return the parsed JSON
+    except Exception as e:
+        logger.error(f"Error in /generate_quiz endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.post("/speak")
