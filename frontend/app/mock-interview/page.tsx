@@ -3,11 +3,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+interface AIResponse {
+  status: string;
+  skor: {
+    motivasi: number;
+    technical_skills: number;
+    pengalaman_proyek: number;
+    pemecahan_masalah: number;
+    kecocokan_budaya: number;
+  };
+  evaluasi_terperinci: string;
+}
+
 const MockInterview: React.FC = () => {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [transcription, setTranscription] = useState<string>('');
-  const [aiResponse, setAiResponse] = useState<string>('');
+  const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);  // Gunakan AIResponse
   const [audioError, setAudioError] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
@@ -203,12 +215,26 @@ const MockInterview: React.FC = () => {
         )}
 
         {/* Display AI response */}
-        {aiResponse && (
+        {aiResponse && aiResponse.skor && (
           <div className="text-left mt-4">
             <p className="text-sm text-gray-600">AI Interviewer Response:</p>
-            <div id="ai-response" className="bg-gray-100 p-3 rounded-md text-black">{aiResponse}</div>
+            <div id="ai-response" className="bg-gray-100 p-3 rounded-md text-black">
+              <p><strong>Status:</strong> {aiResponse.status}</p>
+              <div>
+                <p><strong>Skor:</strong></p>
+                <ul>
+                  <li>Motivasi: {aiResponse.skor.motivasi}</li>
+                  <li>Technical Skills: {aiResponse.skor.technical_skills}</li>
+                  <li>Pengalaman Proyek: {aiResponse.skor.pengalaman_proyek}</li>
+                  <li>Pemecahan Masalah: {aiResponse.skor.pemecahan_masalah}</li>
+                  <li>Kecocokan Budaya: {aiResponse.skor.kecocokan_budaya}</li>
+                </ul>
+              </div>
+              <p><strong>Evaluasi Terperinci:</strong> {aiResponse.evaluasi_terperinci}</p>
+            </div>
           </div>
         )}
+
 
         {/* Error display */}
         {audioError && (

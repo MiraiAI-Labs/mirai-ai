@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import uuid
@@ -145,6 +146,9 @@ class AIService:
         if filename is None:
             filename = f"temp_audio_{user_id}_{uuid.uuid4()}.mp3"
 
+        if isinstance(text, dict):
+            text = json.dumps(text, ensure_ascii=False)
+
         if self.tts_service == "elevenlabs":
             response = self.elevenlabs_client.text_to_speech.convert(
                 voice_id="3mAVBNEqop5UbHtD8oxQ",
@@ -173,9 +177,14 @@ class AIService:
 
         elif self.tts_service == "openai":
             speech_file_path = Path(filename)
+
             response = self.openai_client.client.audio.speech.create(
-                model="tts-1", voice="alloy", input=text
+                model="tts-1",
+                voice="alloy",
+                input=text,
             )
+
+            # Simpan hasil speech ke file
             response.stream_to_file(speech_file_path)
             return str(speech_file_path)
 

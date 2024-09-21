@@ -33,6 +33,9 @@ class RAGService:
         self.conversation_history = []
         self.current_question_index = 0
         self.position = ""
+        self.evaluation_scores = {}
+        self.evaluation_text = ""
+        self.is_evaluation_done = False
 
     def _load_or_create_index(self):
         if not os.path.exists(self.PERSIST_DIR):
@@ -67,34 +70,91 @@ class RAGService:
         6. Setelah 5 pertanyaan, berikan evaluasi yang sejujur-jujurnya mengenai jawaban kandidat, apakah sudah sesuai dengan STAR method, dan apakah kandidat sesuai dengan posisi {self.position}.
         """
 
+    def create_evaluation_prompt(self, conversation_history):
+        return f"""
+        Anda telah melakukan wawancara dengan kandidat untuk posisi {self.position}. Berdasarkan jawaban-jawaban kandidat berikut:
+
+        {conversation_history}
+
+        Berikan penilaian dalam bentuk angka 1-10 untuk masing-masing aspek berikut ini:
+        1. Motivasi kandidat
+        2. Technical skills yang relevan dengan posisi {self.position}
+        3. Pengalaman proyek yang relevan dengan posisi {self.position}
+        4. Kemampuan pemecahan masalah
+        5. Kecocokan budaya kerja
+
+        Selain memberikan skor, buatlah evaluasi singkat dalam bentuk teks untuk masing-masing aspek di atas. Evaluasi harus mencakup hal-hal positif serta area yang dapat ditingkatkan, dan berikan saran yang membantu kandidat dalam pengembangan lebih lanjut.
+
+        Format output yang diinginkan:
+        {{
+            "motivasi": nilai_1_sampai_10,
+            "technical_skills": nilai_1_sampai_10,
+            "pengalaman_proyek": nilai_1_sampai_10,
+            "pemecahan_masalah": nilai_1_sampai_10,
+            "kecocokan_budaya": nilai_1_sampai_10,
+            "evaluasi_teks": "Evaluasi & saran untuk kandidat kedepan nya seperti metode STAR jika belum diimplementasi."
+        }}
+        """
+
     def get_ai_response(self, user_input, position):
         if self.position != position:
             self.position = position
             self.conversation_history = []
             self.current_question_index = 0
+            self.is_evaluation_done = False
 
         query_engine = self.index.as_query_engine(llm=Settings.llm)
         system_prompt = self.create_system_prompt()
 
-        # Gabungkan riwayat percakapan dengan input baru
         full_context = "\n".join(
             self.conversation_history + [f"Kandidat: {user_input}"]
         )
 
+        if self.is_evaluation_done:
+            return {
+                "status": "Evaluasi selesai",
+                "skor": self.evaluation_scores,
+                "evaluasi_terperinci": self.evaluation_text,
+            }
+
         if not self.conversation_history:
+            # Ajukan pertanyaan pertama
             response = query_engine.query(
                 f"{system_prompt}\n\nBerikan sambutan singkat dan ajukan pertanyaan pertama yang relevan untuk posisi {self.position}."
             )
+
         elif self.current_question_index < 5:
+            # Ajukan pertanyaan berikutnya jika belum mencapai 5 pertanyaan
             response = query_engine.query(
                 f"{system_prompt}\n\nKonteks percakapan:\n{full_context}\n\nBerikan respons singkat dan ajukan pertanyaan berikutnya yang relevan untuk posisi {self.position}."
             )
         else:
-            response = query_engine.query(
-                f"{system_prompt}\n\nKonteks percakapan:\n{full_context}\n\nBerikan evaluasi singkat tentang kinerja kandidat untuk posisi {self.position}."
-            )
+            # Setelah 5 pertanyaan, buat prompt evaluasi
+            evaluation_prompt = self.create_evaluation_prompt(full_context)
+            evaluation_response = query_engine.query(evaluation_prompt)
 
-        # Simpan respons dalam riwayat percakapan
+            try:
+                evaluation_data = json.loads(evaluation_response.response)
+                self.evaluation_scores = {
+                    "motivasi": evaluation_data["motivasi"],
+                    "technical_skills": evaluation_data["technical_skills"],
+                    "pengalaman_proyek": evaluation_data["pengalaman_proyek"],
+                    "pemecahan_masalah": evaluation_data["pemecahan_masalah"],
+                    "kecocokan_budaya": evaluation_data["kecocokan_budaya"],
+                }
+                self.evaluation_text = evaluation_data["evaluasi_teks"]
+                self.is_evaluation_done = True  # Tandai bahwa evaluasi sudah selesai
+                print(f"Evaluasi wawancara (1-10): {self.evaluation_scores}")
+                print(f"Evaluasi teks: {self.evaluation_text}")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing evaluation response: {e}")
+
+            return {
+                "status": "Evaluasi selesai",
+                "skor": self.evaluation_scores,  # Section Skor
+                "evaluasi_terperinci": self.evaluation_text,  # Section Saran dan Evaluasi teks secara menyeluruh
+            }
+
         self.conversation_history.append(f"Kandidat: {user_input}")
         self.conversation_history.append(f"HR: {response.response}")
 
