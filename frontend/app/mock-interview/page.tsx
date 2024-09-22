@@ -5,21 +5,24 @@ import { useSearchParams } from 'next/navigation';
 
 interface AIResponse {
   status: string;
-  skor: {
+  skor?: {
     motivasi: number;
     technical_skills: number;
     pengalaman_proyek: number;
     pemecahan_masalah: number;
     kecocokan_budaya: number;
   };
-  evaluasi_terperinci: string;
+  evaluasi_terperinci?: string;
+  ai_response: string;
 }
+
+type SkorKeys = keyof AIResponse['skor'];
 
 const MockInterview: React.FC = () => {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [transcription, setTranscription] = useState<string>('');
-  const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);  // Gunakan AIResponse
+  const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [audioError, setAudioError] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
@@ -154,9 +157,10 @@ const MockInterview: React.FC = () => {
       if (response.ok) {
         const jsonResponse = await response.json();
         setTranscription(jsonResponse.transcription);
-        setAiResponse(jsonResponse.ai_response);
 
-        console.log('Backend Response:', jsonResponse);
+        // Pastikan ai_response diterima dan di-set dengan benar
+        console.log("AI Response from Backend: ", jsonResponse.ai_response);
+        setAiResponse(jsonResponse);  // Set seluruh respons ke aiResponse
 
         const audioUrl = `${process.env.NEXT_PUBLIC_API_URL}${jsonResponse.audio_url}`;
 
@@ -178,6 +182,8 @@ const MockInterview: React.FC = () => {
       }
     }
   };
+
+
 
   return (
     <section className="bg-gradient-to-r from-blue-500 via-blue-400 to-blue-300 h-screen flex justify-center items-center">
@@ -215,26 +221,34 @@ const MockInterview: React.FC = () => {
         )}
 
         {/* Display AI response */}
-        {aiResponse && aiResponse.skor && (
-          <div className="text-left mt-4">
-            <p className="text-sm text-gray-600">AI Interviewer Response:</p>
-            <div id="ai-response" className="bg-gray-100 p-3 rounded-md text-black">
+        {aiResponse && (
+        <div className="text-left mt-4">
+          <p className="text-sm text-gray-600">AI Interviewer Response:</p>
+
+          {/* Menampilkan ai_response walaupun skor belum muncul */}
+          <div id="ai-response" className="bg-gray-100 p-3 rounded-md text-black">
+            <p>{typeof aiResponse.ai_response === 'object' ? JSON.stringify(aiResponse.ai_response) : aiResponse.ai_response}</p>
+          </div>
+
+          {/* Menampilkan evaluasi dan skor jika sudah tersedia */}
+          {aiResponse.skor && (
+            <div className="mt-4">
               <p><strong>Status:</strong> {aiResponse.status}</p>
               <div>
                 <p><strong>Skor:</strong></p>
                 <ul>
-                  <li>Motivasi: {aiResponse.skor.motivasi}</li>
-                  <li>Technical Skills: {aiResponse.skor.technical_skills}</li>
-                  <li>Pengalaman Proyek: {aiResponse.skor.pengalaman_proyek}</li>
-                  <li>Pemecahan Masalah: {aiResponse.skor.pemecahan_masalah}</li>
-                  <li>Kecocokan Budaya: {aiResponse.skor.kecocokan_budaya}</li>
+                  {Object.keys(aiResponse.skor).map((key) => (
+                    <li key={key}>
+                      {key.replace(/_/g, ' ')}: {aiResponse.skor?.[key as SkorKeys]}
+                    </li>
+                  ))}
                 </ul>
               </div>
               <p><strong>Evaluasi Terperinci:</strong> {aiResponse.evaluasi_terperinci}</p>
             </div>
-          </div>
-        )}
-
+          )}
+        </div>
+)}
 
         {/* Error display */}
         {audioError && (

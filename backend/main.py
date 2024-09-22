@@ -95,6 +95,9 @@ async def speak(
     audio: UploadFile = File(...),
     position: str = Query(..., description="The position for the interview"),
     user_id: str = Query(..., description="User identifier"),
+    interview_type: str = Query(
+        "tech", description="Type of interview: 'hr' or 'tech'"
+    ),
 ):
     cleanup_expired_sessions()
 
@@ -116,7 +119,9 @@ async def speak(
         transcription = await ai_service.handle_audio_transcription(audio)
         logger.info(f"Transcription: {transcription}")
 
-        ai_response = ai_service.openai_client.get_ai_response(transcription, position)
+        ai_response = ai_service.openai_client.get_ai_response(
+            transcription, position, interview_type
+        )
         logger.info(f"AI Response: {ai_response}")
 
         filename = f"audios/temp_audio_{user_id}_{uuid.uuid4()}.mp3"

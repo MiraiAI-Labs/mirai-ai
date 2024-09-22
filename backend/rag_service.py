@@ -36,6 +36,7 @@ class RAGService:
         self.evaluation_scores = {}
         self.evaluation_text = ""
         self.is_evaluation_done = False
+        self.interview_type = "hr"
 
     def _load_or_create_index(self):
         if not os.path.exists(self.PERSIST_DIR):
@@ -50,55 +51,97 @@ class RAGService:
         return index
 
     def create_system_prompt(self):
-        return f"""
-        Nama anda adalah Mirai, seorang profesional HR yang berpengalaman dan sedang melakukan wawancara untuk posisi {self.position}.
+        if self.interview_type == "hr":
+            return f"""
+            Nama anda adalah Mirai, seorang profesional HR yang berpengalaman dan sedang melakukan wawancara untuk posisi {self.position}.
 
-        Sebelumnya, Anda sudah melakukan opening dengan statement sebagai berikut "Terima kasih karena telah mempunyai ketertarikan pada perusahaan kami, Nama saya Mirai dari tim rekrutmen. Terima kasih sudah meluangkan waktu untuk mengikuti sesi wawancara ini. Kami sangat senang bisa mengenal Anda lebih dekat hari ini. Semoga kita bisa melalui sesi ini dengan lancar dan nyaman. Jika ada hal yang ingin ditanyakan selama wawancara, jangan ragu untuk mengatakannya. Mari kita mulai dengan perkenalan diri anda secara kreatif"
-        Jadi, tolong lanjutkan sesuai dengan konteks dan hasil dari jawaban kandidat sebagai "PERTANYAAN KEDUA"
+            Sebelumnya, Anda sudah melakukan opening dengan statement sebagai berikut "Terima kasih karena telah mempunyai ketertarikan pada perusahaan kami, Nama saya Mirai dari tim rekrutmen. Terima kasih sudah meluangkan waktu untuk mengikuti sesi wawancara ini. Kami sangat senang bisa mengenal Anda lebih dekat hari ini. Semoga kita bisa melalui sesi ini dengan lancar dan nyaman. Jika ada hal yang ingin ditanyakan selama wawancara, jangan ragu untuk mengatakannya. Mari kita mulai dengan perkenalan diri anda secara kreatif"
+            Jadi, tolong lanjutkan sesuai dengan konteks dan hasil dari jawaban kandidat sebagai "PERTANYAAN KEDUA"
 
-        Ikuti panduan berikut:
-        1. Berikan respons singkat dan relevan terhadap jawaban kandidat.
-        2. Ajukan satu pertanyaan pada satu waktu, yang relevan dengan posisi {self.position}.
-        3. Pastikan untuk mencakup pertanyaan tentang:
-        - Motivasi kandidat
-        - Technical skills yang relevan dengan posisi {self.position}
-        - Pengalaman proyek yang relevan dengan posisi {self.position}
-        - Kemampuan pemecahan masalah
-        - Kecocokan budaya kerja
-        4. Gunakan konteks dari jawaban sebelumnya untuk membuat pertanyaan yang relevan.
-        5. Pertahankan nada profesional sepanjang wawancara.
-        6. Setelah 5 pertanyaan, berikan evaluasi yang sejujur-jujurnya mengenai jawaban kandidat, apakah sudah sesuai dengan STAR method, dan apakah kandidat sesuai dengan posisi {self.position}.
-        """
+            Ikuti panduan berikut:
+            1. Berikan respons singkat dan relevan terhadap jawaban kandidat.
+            2. Ajukan satu pertanyaan pada satu waktu, yang relevan dengan posisi {self.position}.
+            3. Pastikan untuk mencakup pertanyaan tentang:
+            - Motivasi kandidat
+            - Technical skills yang relevan dengan posisi {self.position}
+            - Pengalaman proyek yang relevan dengan posisi {self.position}
+            - Kemampuan pemecahan masalah
+            - Kecocokan budaya kerja
+            4. Gunakan konteks dari jawaban sebelumnya untuk membuat pertanyaan yang relevan.
+            5. Pertahankan nada profesional sepanjang wawancara.
+            6. Setelah 5 pertanyaan, berikan evaluasi yang sejujur-jujurnya mengenai jawaban kandidat, apakah sudah sesuai dengan STAR method, dan apakah kandidat sesuai dengan posisi {self.position}.
+            """
+        elif self.interview_type == "tech":
+            return f"""
+            Nama anda adalah Mirai, Anda adalah seorang User pada suatu perusahaan yang sedang melakukan wawancara teknis yang sedang melakukan wawancara untuk posisi {self.position}.
+
+            Sebelumnya, Anda sudah melakukan opening dengan statement sebagai berikut "Terima kasih karena telah mempunyai ketertarikan pada perusahaan kami, Nama saya Mirai dari tim rekrutmen. Terima kasih sudah meluangkan waktu untuk mengikuti sesi wawancara ini. Kami sangat senang bisa mengenal Anda lebih dekat hari ini. Semoga kita bisa melalui sesi ini dengan lancar dan nyaman. Jika ada hal yang ingin ditanyakan selama wawancara, jangan ragu untuk mengatakannya. Mari kita mulai dengan perkenalan diri anda secara kreatif"
+            Jadi, tolong lanjutkan sesuai dengan konteks dan hasil dari jawaban kandidat sebagai "PERTANYAAN KEDUA"
+
+            Ajukan 3 pertanyaan teknis terkait posisi ini. Berikut adalah contoh pertanyaan yang bisa Anda ajukan untuk beberapa posisi:
+            - Software Engineer: Gimana cara anda melakukan caching, bagaimana cara anda untuk melakukan API versioning.
+            - Data Engineer: Bagaimana Anda melakukan data modeling, strategi pipeline data.
+
+            Ikuti panduan berikut:
+            1. Berikan respons singkat terhadap jawaban kandidat.
+            2. Ajukan pertanyaan yang relevan satu per satu sesuai dengan konteks dari jawaban sebelumnya.
+            3. Setelah 3 pertanyaan, lakukan evaluasi kandidat berdasarkan jawaban mereka.
+
+            Pertahankan nada profesional sepanjang wawancara.
+            """
 
     def create_evaluation_prompt(self, conversation_history):
-        return f"""
-        Anda telah melakukan wawancara dengan kandidat untuk posisi {self.position}. Berdasarkan jawaban-jawaban kandidat berikut:
+        if self.interview_type == "hr":
+            return f"""
+                Anda telah melakukan wawancara dengan kandidat untuk posisi {self.position}. Berdasarkan jawaban-jawaban kandidat berikut:
 
-        {conversation_history}
+                {conversation_history}
 
-        Berikan penilaian dalam bentuk angka 1-10 untuk masing-masing aspek berikut ini:
-        1. Motivasi kandidat
-        2. Technical skills yang relevan dengan posisi {self.position}
-        3. Pengalaman proyek yang relevan dengan posisi {self.position}
-        4. Kemampuan pemecahan masalah
-        5. Kecocokan budaya kerja
+                Berikan penilaian dalam bentuk angka 1-10 untuk masing-masing aspek berikut ini:
+                1. Motivasi kandidat
+                2. Technical skills yang relevan dengan posisi {self.position}
+                3. Pengalaman proyek yang relevan dengan posisi {self.position}
+                4. Kemampuan pemecahan masalah
+                5. Kecocokan budaya kerja
 
-        Selain memberikan skor, buatlah evaluasi singkat dalam bentuk teks untuk masing-masing aspek di atas. Evaluasi harus mencakup hal-hal positif serta area yang dapat ditingkatkan, dan berikan saran yang membantu kandidat dalam pengembangan lebih lanjut.
+                Jangan terlalu baik dalam memberikan skor jika memang dia belum kompeten/baru belajar, karena ini untuk pekerja professional. Selain memberikan skor, buatlah evaluasi singkat dalam bentuk teks untuk masing-masing aspek di atas. Evaluasi harus mencakup hal-hal positif serta area yang dapat ditingkatkan, dan berikan saran yang membantu kandidat dalam pengembangan lebih lanjut.
 
-        Format output yang diinginkan:
-        {{
-            "motivasi": nilai_1_sampai_10,
-            "technical_skills": nilai_1_sampai_10,
-            "pengalaman_proyek": nilai_1_sampai_10,
-            "pemecahan_masalah": nilai_1_sampai_10,
-            "kecocokan_budaya": nilai_1_sampai_10,
-            "evaluasi_teks": "Evaluasi & saran untuk kandidat kedepan nya seperti metode STAR jika belum diimplementasi."
-        }}
-        """
+                Format output yang diinginkan:
+                {{
+                    "motivasi": nilai_1_sampai_10,
+                    "technical_skills": nilai_1_sampai_10,
+                    "pengalaman_proyek": nilai_1_sampai_10,
+                    "pemecahan_masalah": nilai_1_sampai_10,
+                    "kecocokan_budaya": nilai_1_sampai_10,
+                    "evaluasi_teks": "Evaluasi & saran untuk kandidat ke depan."
+                }}
+                """
+        elif self.interview_type == "tech":
+            return f"""
+                Anda telah melakukan wawancara teknis dengan kandidat untuk posisi {self.position}. Berdasarkan jawaban-jawaban kandidat berikut:
 
-    def get_ai_response(self, user_input, position):
-        if self.position != position:
+                {conversation_history}
+
+                Berikan penilaian dalam bentuk angka 1-10 untuk masing-masing aspek berikut ini:
+                1. Technical skills yang relevan dengan posisi {self.position}
+                2. Pengalaman proyek yang relevan dengan posisi {self.position}
+                3. Kemampuan pemecahan masalah
+
+                Jangan terlalu baik dalam memberikan skor jika memang dia belum kompeten/baru belajar, karena ini untuk pekerja professional. Selain memberikan skor, buatlah evaluasi singkat dalam bentuk teks untuk masing-masing aspek di atas. Evaluasi harus mencakup hal-hal positif serta area yang dapat ditingkatkan, dan berikan saran yang membantu kandidat dalam pengembangan lebih lanjut.
+
+                Format output yang diinginkan:
+                {{
+                    "technical_skills": nilai_1_sampai_10,
+                    "pengalaman_proyek": nilai_1_sampai_10,
+                    "pemecahan_masalah": nilai_1_sampai_10,
+                    "evaluasi_teks": "Evaluasi & saran untuk kandidat ke depan."
+                }}
+                """
+
+    def get_ai_response(self, user_input, position, interview_type="hr"):
+        if self.position != position or self.interview_type != interview_type:
             self.position = position
+            self.interview_type = interview_type
             self.conversation_history = []
             self.current_question_index = 0
             self.is_evaluation_done = False
@@ -109,6 +152,9 @@ class RAGService:
         full_context = "\n".join(
             self.conversation_history + [f"Kandidat: {user_input}"]
         )
+
+        # Limit untuk HR interview = 5, untuk Technical 3
+        question_limit = 5 if self.interview_type == "hr" else 3
 
         if self.is_evaluation_done:
             return {
@@ -123,36 +169,42 @@ class RAGService:
                 f"{system_prompt}\n\nBerikan sambutan singkat dan ajukan pertanyaan pertama yang relevan untuk posisi {self.position}."
             )
 
-        elif self.current_question_index < 5:
-            # Ajukan pertanyaan berikutnya jika belum mencapai 5 pertanyaan
+        elif self.current_question_index < question_limit:
+            # Ajukan pertanyaan berikutnya jika belum mencapai batas pertanyaan
             response = query_engine.query(
                 f"{system_prompt}\n\nKonteks percakapan:\n{full_context}\n\nBerikan respons singkat dan ajukan pertanyaan berikutnya yang relevan untuk posisi {self.position}."
             )
         else:
-            # Setelah 5 pertanyaan, buat prompt evaluasi
+            # Setelah jumlah pertanyaan yang ditentukan, buat prompt evaluasi
             evaluation_prompt = self.create_evaluation_prompt(full_context)
             evaluation_response = query_engine.query(evaluation_prompt)
 
             try:
                 evaluation_data = json.loads(evaluation_response.response)
-                self.evaluation_scores = {
-                    "motivasi": evaluation_data["motivasi"],
-                    "technical_skills": evaluation_data["technical_skills"],
-                    "pengalaman_proyek": evaluation_data["pengalaman_proyek"],
-                    "pemecahan_masalah": evaluation_data["pemecahan_masalah"],
-                    "kecocokan_budaya": evaluation_data["kecocokan_budaya"],
-                }
+                if self.interview_type == "hr":
+                    self.evaluation_scores = {
+                        "motivasi": evaluation_data["motivasi"],
+                        "technical_skills": evaluation_data["technical_skills"],
+                        "pengalaman_proyek": evaluation_data["pengalaman_proyek"],
+                        "pemecahan_masalah": evaluation_data["pemecahan_masalah"],
+                        "kecocokan_budaya": evaluation_data["kecocokan_budaya"],
+                    }
+                else:
+                    self.evaluation_scores = {
+                        "technical_skills": evaluation_data["technical_skills"],
+                        "pengalaman_proyek": evaluation_data["pengalaman_proyek"],
+                        "pemecahan_masalah": evaluation_data["pemecahan_masalah"],
+                    }
                 self.evaluation_text = evaluation_data["evaluasi_teks"]
-                self.is_evaluation_done = True  # Tandai bahwa evaluasi sudah selesai
-                print(f"Evaluasi wawancara (1-10): {self.evaluation_scores}")
-                print(f"Evaluasi teks: {self.evaluation_text}")
+                self.is_evaluation_done = True
+
             except json.JSONDecodeError as e:
                 print(f"Error parsing evaluation response: {e}")
 
             return {
                 "status": "Evaluasi selesai",
-                "skor": self.evaluation_scores,  # Section Skor
-                "evaluasi_terperinci": self.evaluation_text,  # Section Saran dan Evaluasi teks secara menyeluruh
+                "skor": self.evaluation_scores,
+                "evaluasi_terperinci": self.evaluation_text,
             }
 
         self.conversation_history.append(f"Kandidat: {user_input}")

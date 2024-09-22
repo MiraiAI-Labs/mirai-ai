@@ -89,9 +89,11 @@ class OpenAIClient:
     def __init__(self, api_key):
         self.client = OpenAI(api_key=api_key)
 
-    def get_ai_response(self, question, position):
+    def get_ai_response(self, question, position, interview_type="hr"):
         try:
-            ai_response = rag_service.get_ai_response(question, position)
+            ai_response = rag_service.get_ai_response(
+                question, position, interview_type
+            )
             return ai_response
         except Exception as e:
             raise HTTPException(
