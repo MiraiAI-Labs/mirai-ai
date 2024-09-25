@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 
 const Home: React.FC = () => {
   const [position, setPosition] = useState<string>('');
+  const [interviewType, setInterviewType] = useState<string>('tech'); // Default 'tech'
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(`/mock-interview?position=${encodeURIComponent(position)}`);
+    // Kirim position dan interviewType sebagai query parameters
+    router.push(`/mock-interview?position=${encodeURIComponent(position)}&interview_type=${encodeURIComponent(interviewType)}`);
   };
 
   return (
@@ -28,7 +30,21 @@ const Home: React.FC = () => {
               required
             />
           </div>
-          <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-full w-full focus:outline-none">
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2">Interview Type:</label>
+            <select
+              value={interviewType}
+              onChange={(e) => setInterviewType(e.target.value)}
+              className="w-full p-2 border rounded text-black"
+            >
+              <option value="tech">Technical Interview</option>
+              <option value="hr">HR Interview</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-full w-full focus:outline-none"
+          >
             Start Mock Interview
           </button>
         </form>

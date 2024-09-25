@@ -34,6 +34,9 @@ const MockInterview: React.FC = () => {
 
   const searchParams = useSearchParams();
   const position = searchParams.get('position') || '';
+  // Ambil interview_type dari URL, default nya HR
+  const interviewType = searchParams.get('interview_type') || 'hr';
+
 
   useEffect(() => {
     const fetchTtsService = async () => {
@@ -63,9 +66,14 @@ const MockInterview: React.FC = () => {
       return;
     }
 
-    const welcomeAudioUrl = ttsService === "openai"
-      ? `${baseUrl}/static/welcoming/welcoming-alloy.wav`
-      : `${baseUrl}/static/welcoming/welcoming-zephlyn.wav`;
+    // Tentukan URL audio yang sesuai berdasarkan interviewType
+    const welcomeAudioUrl = interviewType === "tech"
+      ? ttsService === "openai"
+        ? `${baseUrl}/static/welcoming/welcoming-tech-alloy.wav`
+        : `${baseUrl}/static/welcoming/welcoming-tech-zephlyn.wav`
+      : ttsService === "openai"
+        ? `${baseUrl}/static/welcoming/welcoming-alloy.wav`
+        : `${baseUrl}/static/welcoming/welcoming-zephlyn.wav`;
 
     console.log("Playing audio from URL:", welcomeAudioUrl);
 
@@ -86,7 +94,8 @@ const MockInterview: React.FC = () => {
       setIsStartButtonDisabled(false);
     };
 
-  }, [ttsService]);
+  }, [ttsService, interviewType]);
+
 
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then(devices => {
