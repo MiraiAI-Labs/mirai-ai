@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -10,9 +11,11 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from llama_index.llms.openai import OpenAI
 from rag_service import rag_service
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 audios_dir = Path("./audios")
 audios_dir.mkdir(parents=True, exist_ok=True)
@@ -189,6 +192,79 @@ async def get_audio(filename: str, user_id: str = Query(...)):
 @app.get("/config")
 async def get_config():
     return {"tts_service": ai_service.tts_service}
+
+
+import logging
+
+from fastapi import File, UploadFile
+
+logger = logging.getLogger(__name__)
+
+
+@app.post("/jobseeker_advice")
+async def jobseeker_advice(
+    job_title: str = Query(
+        ..., description="Job title for which advice will be provided"
+    ),
+    json_file: UploadFile = File(
+        ..., description="JSON file containing job-related data"
+    ),
+):
+    logger.info(f"Received request for job title: {job_title}")
+
+    try:
+        content = await json_file.read()
+        logger.info(f"Uploaded file content: {content}")
+        data = json.loads(content)
+
+        if "wordcloud_data" not in data:
+            logger.error(f"Invalid JSON structure: {data}")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid JSON structure, 'wordcloud_data' missing",
+            )
+
+        wordcloud_data = data.get("wordcloud_data", {})
+        logger.info(f"Extracted wordcloud data: {wordcloud_data}")
+
+        advice_prompt = f"""
+        TOLONG SELALU GUNAKAN BAHASA INDONESIA
+        You are a career advisor helping a job seeker looking to become a {job_title}.
+        Based on industry trends, key skills required for this role are: {', '.join(wordcloud_data.keys())}.
+        Please provide personalized advice that covers:
+        1. Key technical skills for {job_title} and how to acquire them.
+        2. Resume improvement tips specific to this role.
+        3. Interview preparation strategies.
+        4. Common pitfalls to avoid.
+        5. Career growth tips in the field of {job_title}.
+        """
+
+        logger.info(f"Advice prompt generated: {advice_prompt}")
+
+        ai_response = rag_service.index.as_query_engine(
+            llm=OpenAI(model="gpt-4o-mini", api_key=api_key)
+        ).query(advice_prompt)
+
+        # Split the advice into structured format
+        advice_sections = ai_response.response.split("\n\n")
+        structured_advice = {
+            "technical_skills": advice_sections[0],
+            "resume_tips": advice_sections[1],
+            "interview_preparation": advice_sections[2],
+            "common_pitfalls": advice_sections[3],
+            "career_growth_tips": advice_sections[4],
+        }
+
+        logger.info(f"AI Response: {structured_advice}")
+
+        return JSONResponse(content={"advice": structured_advice})
+
+    except json.JSONDecodeError:
+        logger.error("Failed to parse JSON file")
+        raise HTTPException(status_code=400, detail="Failed to parse JSON file")
+    except Exception as e:
+        logger.error(f"Error generating jobseeker advice: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 if __name__ == "__main__":
