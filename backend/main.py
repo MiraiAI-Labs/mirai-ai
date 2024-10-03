@@ -4,6 +4,7 @@ import os
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from ai import AIService, HuggingFaceWhisperClient, OpenAIWhisperClient
 from dotenv import load_dotenv
@@ -12,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from llama_index.llms.openai import OpenAI
+from openai import OpenAI
+from pydantic import BaseModel
 from rag_service import rag_service
 
 load_dotenv()
@@ -194,13 +197,6 @@ async def get_config():
     return {"tts_service": ai_service.tts_service}
 
 
-import logging
-
-from fastapi import File, UploadFile
-
-logger = logging.getLogger(__name__)
-
-
 @app.post("/jobseeker_advice")
 async def jobseeker_advice(
     job_title: str = Query(
@@ -264,6 +260,67 @@ async def jobseeker_advice(
         raise HTTPException(status_code=400, detail="Failed to parse JSON file")
     except Exception as e:
         logger.error(f"Error generating jobseeker advice: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+######################## Quiz Roadmap ########################
+
+
+class QuizRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+
+client = OpenAI(api_key=api_key)
+
+
+@app.post("/roadmap_quiz")
+async def roadmap_quiz(request: QuizRequest):
+    """
+    Generate 1 soal quiz based on title & description (optional)
+    """
+    try:
+        title = request.title
+        description = (
+            request.description if request.description else "Deskripsi tidak tersedia"
+        )
+
+        quiz_prompt = f"""
+        TOLONG SELALU JAWAB DENGAN BAHASA INDONESIA
+
+        You are a domain expert creating a quiz for the topic "{title}".
+        Description: {description}
+
+        Tolong buat 1 pertanyaan yang relevan dengan description tersebut. Include 4 multiple-choice options tanpa keterangan A B C D and indicate the correct answer index.
+
+        Format the output in JSON with the following structure:
+        {{
+          "question": "Your generated question",
+          "choices": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "answer": CorrectAnswerIndex
+        }}
+        """
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": quiz_prompt}],
+            temperature=0.7,
+            max_tokens=300,
+        )
+
+        response_text = response.choices[0].message.content.strip()
+
+        start_index = response_text.find("{")
+        end_index = response_text.rfind("}") + 1
+        quiz_json = json.loads(response_text[start_index:end_index])
+
+        return JSONResponse(content=quiz_json)
+
+    except json.JSONDecodeError:
+        logger.error("Failed to parse JSON from OpenAI response")
+        raise HTTPException(status_code=400, detail="Failed to parse JSON response")
+    except Exception as e:
+        logger.error(f"Error generating quiz using OpenAI API: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
