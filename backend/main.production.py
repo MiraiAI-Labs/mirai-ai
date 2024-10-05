@@ -197,21 +197,21 @@ async def get_config():
     return {"tts_service": ai_service.tts_service}
 
 
+######################## JobSeeker Advice ########################
+from fastapi import Body, Query
+
+
 @app.post("/jobseeker_advice")
 async def jobseeker_advice(
     job_title: str = Query(
         ..., description="Job title for which advice will be provided"
     ),
-    json_file: UploadFile = File(
-        ..., description="JSON file containing job-related data"
-    ),
+    data: dict = Body(..., description="JSON data containing job-related information"),
 ):
     logger.info(f"Received request for job title: {job_title}")
 
     try:
-        content = await json_file.read()
-        logger.info(f"Uploaded file content: {content}")
-        data = json.loads(content)
+        logger.info(f"Received JSON data: {data}")
 
         if "wordcloud_data" not in data:
             logger.error(f"Invalid JSON structure: {data}")
@@ -224,40 +224,31 @@ async def jobseeker_advice(
         logger.info(f"Extracted wordcloud data: {wordcloud_data}")
 
         advice_prompt = f"""
-        TOLONG SELALU GUNAKAN BAHASA INDONESIA
-        You are a career advisor helping a job seeker looking to become a {job_title}.
-        Based on industry trends, key skills required for this role are: {', '.join(wordcloud_data.keys())}.
-        Please provide personalized advice that covers:
-        1. Key technical skills for {job_title} and how to acquire them.
-        2. Resume improvement tips specific to this role.
-        3. Interview preparation strategies.
-        4. Common pitfalls to avoid.
-        5. Career growth tips in the field of {job_title}.
+        TOLONG SELALU JAWAB DENGAN BAHASA INDONESIA.
+
+        Anda adalah seorang penasihat karir advance yang membantu pencari kerja yang ingin menjadi seorang {job_title} handal.
+        Berdasarkan tren industri saat ini, keterampilan utama yang dibutuhkan untuk posisi ini adalah: {', '.join(wordcloud_data.keys())}.
+
+        Mohon berikan advice/saran untuk mendapatkan pekerjaan impian nya sesuai dengan job {job_title}
+
+        Buat dalam 2 kalimat saja
         """
 
-        logger.info(f"Advice prompt generated: {advice_prompt}")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": advice_prompt}],
+            temperature=0.7,
+        )
 
-        ai_response = rag_service.index.as_query_engine(
-            llm=OpenAI(model="gpt-4o-mini", api_key=api_key)
-        ).query(advice_prompt)
+        response_text = response.choices[0].message.content.strip()
 
-        # Split the advice into structured format
-        advice_sections = ai_response.response.split("\n\n")
-        structured_advice = {
-            "technical_skills": advice_sections[0],
-            "resume_tips": advice_sections[1],
-            "interview_preparation": advice_sections[2],
-            "common_pitfalls": advice_sections[3],
-            "career_growth_tips": advice_sections[4],
-        }
+        logger.info(f"AI Response: {response_text}")
 
-        logger.info(f"AI Response: {structured_advice}")
-
-        return JSONResponse(content={"advice": structured_advice})
+        return JSONResponse(content={"advice": response_text})
 
     except json.JSONDecodeError:
-        logger.error("Failed to parse JSON file")
-        raise HTTPException(status_code=400, detail="Failed to parse JSON file")
+        logger.error("Failed to parse JSON data")
+        raise HTTPException(status_code=400, detail="Failed to parse JSON data")
     except Exception as e:
         logger.error(f"Error generating jobseeker advice: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -327,4 +318,11 @@ async def roadmap_quiz(request: QuizRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug", ssl_keyfile="/etc/letsencrypt/live/mirai.ahli-waris.my.id/privkey.pem", ssl_certfile="/etc/letsencrypt/live/mirai.ahli-waris.my.id/fullchain.pem")
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="debug",
+        ssl_keyfile="/etc/letsencrypt/live/mirai.ahli-waris.my.id/privkey.pem",
+        ssl_certfile="/etc/letsencrypt/live/mirai.ahli-waris.my.id/fullchain.pem",
+    )
